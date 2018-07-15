@@ -1,5 +1,5 @@
 import mosquitto
-import time, threading, requests, json
+import time, threading, requests, json, urllib2
 import RPi.GPIO as GPIO
 import datetime as dt
 #from calTimer import setTime #hitung timer
@@ -8,6 +8,7 @@ END_POINT = "http://139.99.47.91:8000/api/"
 
 broker = "test.mosquitto.org"
 topic = "/TA-ferdi/status/smart-lamp"
+mqtt = mosquitto.Mosquitto()
 job1 = []
 job2 = []
 njob1 = 0
@@ -25,11 +26,11 @@ class Job(threading.Thread):
  
     def __init__(self, dura, status):
         threading.Thread.__init__(self)
-        #cara ribet logikanya
-        self.duration = setDura(dura)
+        # #cara ribet logikanya
+        # self.duration = setDura(dura)
         #cara mudah logikanya
-        #
-        #self.duration = dura
+        
+        self.duration = dura
         self.shutdown_flag = threading.Event()
         self.status = status
 
@@ -39,25 +40,28 @@ class Job(threading.Thread):
     
         # dibawah cara ribet logikanya
         i=0
-        while not self.shutdown_flag.is_set():
-            if (i != self.duration):
-                i += 1
-                time.sleep(1)
-                print(i)
-            else:
-                self.shutdown_flag.set()
-        # cara mudah logikanya
-        #
         # while not self.shutdown_flag.is_set():
-        #     t = dt.datetime.now().time()
-        #     seconds = (t.hour * 60 + t.minute) * 60 + t.second
-        #     if (seconds != self.duration):
+        #     if (i != self.duration):
         #         i += 1
         #         time.sleep(1)
-        #         print(seconds)
+        #         print(i)
         #     else:
-        #         self.shutdown_flag.set()       
-        setLamp(self.status)
+        #         self.shutdown_flag.set()
+        # cara mudah logikanya
+        if (self.duration != -1):
+            while not self.shutdown_flag.is_set():
+                t = dt.datetime.now().time()
+                seconds = (t.hour * 60 + t.minute) * 60 + t.second
+                if (seconds != self.duration):
+                    i += 1
+                    time.sleep(1)
+                    print(seconds)
+                else:
+                    self.shutdown_flag.set()       
+            setLamp(self.status)
+        else:
+            self.shutdown_flag.set() 
+
         print('Thread #%s stopped' % self.ident)
 
 
@@ -198,6 +202,13 @@ def setLamp(status):
         #GPIO.output(lamp_pin, GPIO.HIGH)
     print('status '+status)
 
+def checkConn():
+    try:
+        urllib2.urlopen(END_POINT, timeout=1)
+        return True
+    except urllib2.URLERROR as err:
+        return False
+
 def main():
     
     GPIO.setmode(GPIO.BCM)
@@ -215,7 +226,6 @@ def main():
         #status_lampu = 'off'
         print("lampu mati")
 
-    mqtt = mosquitto.Mosquitto()
     mqtt.on_message = on_message
     mqtt.on_subscribe = on_subscribe
     
